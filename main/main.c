@@ -30,12 +30,13 @@ static const char *TAG = "DecibilityWearable";
 #define EXAMPLE_ADC_GET_DATA(p_data) ((p_data)->type2.data)
 #endif
 
-#define EXAMPLE_READ_LEN 256
+#define NUM_SAMPLES 256
 
 static adc_channel_t channel[1] = {ADC_CHANNEL_2};
 
 static TaskHandle_t s_task_handle;
 
+// Interrupt Handler for ADC conversion done
 static bool IRAM_ATTR s_conv_done_cb(adc_continuous_handle_t handle, const adc_continuous_evt_data_t *edata, void *user_data)
 {
     BaseType_t mustYield = pdFALSE;
@@ -45,18 +46,19 @@ static bool IRAM_ATTR s_conv_done_cb(adc_continuous_handle_t handle, const adc_c
     return (mustYield == pdTRUE);
 }
 
+// Initializes Continuous ADC Conversions
 static void continuous_adc_init(adc_channel_t *channel, uint8_t channel_num, adc_continuous_handle_t *out_handle)
 {
     adc_continuous_handle_t handle = NULL;
 
     adc_continuous_handle_cfg_t adc_config = {
         .max_store_buf_size = 1024,
-        .conv_frame_size = EXAMPLE_READ_LEN,
+        .conv_frame_size = NUM_SAMPLES,
     };
     ESP_ERROR_CHECK(adc_continuous_new_handle(&adc_config, &handle));
 
     adc_continuous_config_t dig_cfg = {
-        .sample_freq_hz = 1000, // 20 * 1000,
+        .sample_freq_hz = 44100,
         .conv_mode = EXAMPLE_ADC_CONV_MODE,
         .format = EXAMPLE_ADC_OUTPUT_TYPE,
     };
@@ -82,7 +84,7 @@ static void continuous_adc_init(adc_channel_t *channel, uint8_t channel_num, adc
 
 /***** LED STUFF *****/
 
-#define BLINK_GPIO 8
+#define BLINK_GPIO 9
 #define BLINK_MS_PERIOD 1000
 
 static uint8_t s_led_state = 0;
@@ -108,11 +110,10 @@ static void blink_led(void)
 
 static void configure_led(void)
 {
-    ESP_LOGI(TAG, "Example configured to blink addressable LED!");
     /* LED strip initialization with the GPIO and pixels number*/
     led_strip_config_t strip_config = {
         .strip_gpio_num = BLINK_GPIO,
-        .max_leds = 1, // at least one LED on board
+        .max_leds = 3, // at least one LED on board
     };
     led_strip_rmt_config_t rmt_config = {
         .resolution_hz = 10 * 1000 * 1000, // 10MHz
@@ -124,102 +125,100 @@ static void configure_led(void)
 
 void app_main(void)
 {
+    // Initialize LED and set it to Green
     configure_led();
     led_strip_set_pixel(led_strip, 0, 0, 10, 0);
     led_strip_refresh(led_strip);
 
-    esp_err_t ret;
-    uint32_t ret_num = 0;
-    uint8_t result[EXAMPLE_READ_LEN] = {0};
-    memset(result, 0xcc, EXAMPLE_READ_LEN);
+    // ADC Variables
+    esp_err_t ret;                     // Error Code that adc_continuous_read() will return
+    uint32_t ret_num = 0;              // Will store number of data points that adc_continuous_read() returns
+    uint8_t result[NUM_SAMPLES] = {0}; // Buffer that will store ADC Results
 
+    memset(result, 0xcc, NUM_SAMPLES); // Fills result array with 0xCC at every index
+
+    // Get handle to main
     s_task_handle = xTaskGetCurrentTaskHandle();
 
+    // Initializes ADC and cereates a Task for it, returning the handle
     adc_continuous_handle_t handle = NULL;
     continuous_adc_init(channel, sizeof(channel) / sizeof(adc_channel_t), &handle);
 
+    // Sets ISR for ADC Conversion Complete
     adc_continuous_evt_cbs_t cbs = {
         .on_conv_done = s_conv_done_cb,
     };
     ESP_ERROR_CHECK(adc_continuous_register_event_callbacks(handle, &cbs, NULL));
+
+    // Starts Continuous ADC Conversion
     ESP_ERROR_CHECK(adc_continuous_start(handle));
 
-    int sampleNum = 0;
-    int delay = 0;
-
+    int delay = 0; // Delay used for updating LEDs
     while (1)
     {
-
-        /**
-         * This is to show you the way to use the ADC continuous mode driver event callback.
-         * This `ulTaskNotifyTake` will block when the data processing in the task is fast.
-         * However in this example, the data processing (print) is slow, so you barely block here.
-         *
-         * Without using this event callback (to notify this task), you can still just call
-         * `adc_continuous_read()` here in a loop, with/without a certain block timeout.
-         */
+        // Waits until ADC is ready to read from
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
-        char unit[] = EXAMPLE_ADC_UNIT_STR(EXAMPLE_ADC_UNIT);
-
+        // Reads until there is no available data
         while (1)
         {
-            ret = adc_continuous_read(handle, result, EXAMPLE_READ_LEN, &ret_num, 0);
-            if (ret == ESP_OK)
-            {
-                // ESP_LOGI("TASK", "ret is %x, ret_num is %" PRIu32 " bytes", ret, ret_num);
-                uint16_t max = 0;
-                for (int i = 0; i < ret_num; i += SOC_ADC_DIGI_RESULT_BYTES)
-                {
-                    adc_digi_output_data_t *p = (adc_digi_output_data_t *)&result[i];
-                    uint32_t chan_num = EXAMPLE_ADC_GET_CHANNEL(p);
-                    uint32_t data = EXAMPLE_ADC_GET_DATA(p);
-                    /* Check the channel number validation, the data is invalid if the channel num exceed the maximum channel */
-                    if (chan_num < SOC_ADC_CHANNEL_NUM(EXAMPLE_ADC_UNIT))
-                    {
-                        // ESP_LOGI(TAG, "Unit: %s, Channel: %" PRIu32 ", Value: %" PRIx32, unit, chan_num, data);
-                        if (data > max)
-                        {
-                            max = data;
-                        }
-                    }
-                    else
-                    {
-                        ESP_LOGW(TAG, "Invalid data [%s_%" PRIu32 "_%" PRIx32 "]", unit, chan_num, data);
-                    }
-                }
+            ret = adc_continuous_read(handle, result, NUM_SAMPLES, &ret_num, 0);
 
-                ESP_LOGI(TAG, "Value: %d (%d)", max, sampleNum);
-                if (max > 200)
+            if (ret == ESP_ERR_TIMEOUT)
+            {
+                break;
+            }
+            else if (ret != ESP_OK)
+            {
+                ESP_LOGW(TAG, "ADC Continuous Read did not return OK");
+                continue;
+            }
+
+            uint16_t max = 0;
+            for (int i = 0; i < ret_num; i += SOC_ADC_DIGI_RESULT_BYTES)
+            {
+                adc_digi_output_data_t *p = (adc_digi_output_data_t *)&result[i];
+                uint32_t chan_num = EXAMPLE_ADC_GET_CHANNEL(p);
+                uint32_t data = EXAMPLE_ADC_GET_DATA(p);
+                /* Check the channel number validation, the data is invalid if the channel num exceed the maximum channel */
+                if (chan_num < SOC_ADC_CHANNEL_NUM(EXAMPLE_ADC_UNIT))
                 {
-                    delay = 16;
-                    led_strip_set_pixel(led_strip, 0, 10, 0, 0);
+                    if (data > max)
+                    {
+                        max = data;
+                    }
                 }
                 else
                 {
-                    if(delay == 0) {
-                        led_strip_set_pixel(led_strip, 0, 0, 0, 10);
-                    } else {
-                        delay--;
-                    }
+                    ESP_LOGW(TAG, "Invalid data");
                 }
-                led_strip_refresh(led_strip);
-                sampleNum++;
-                /**
-                 * Because printing is slow, so every time you call `ulTaskNotifyTake`, it will immediately return.
-                 * To avoid a task watchdog timeout, add a delay here. When you replace the way you process the data,
-                 * usually you don't need this delay (as this task will block for a while).
-                 */
-                vTaskDelay(1);
             }
-            else if (ret == ESP_ERR_TIMEOUT)
+
+            if (max > 200)
             {
-                // We try to read `EXAMPLE_READ_LEN` until API returns timeout, which means there's no available data
-                break;
+                delay = 60;
+                led_strip_set_pixel(led_strip, 0, 0, 10, 0);
+                led_strip_set_pixel(led_strip, 1, 0, 10, 0);
+                led_strip_set_pixel(led_strip, 2, 0, 10, 0);
             }
+            else
+            {
+                if (delay == 0)
+                {
+                    led_strip_set_pixel(led_strip, 0, 0, 0, 10);
+                    led_strip_set_pixel(led_strip, 1, 0, 0, 10);
+                    led_strip_set_pixel(led_strip, 2, 0, 0, 10);
+                }
+                else
+                {
+                    delay--;
+                }
+            }
+            led_strip_refresh(led_strip);
         }
     }
 
+    // Deactivates the ADC
     ESP_ERROR_CHECK(adc_continuous_stop(handle));
     ESP_ERROR_CHECK(adc_continuous_deinit(handle));
 }
