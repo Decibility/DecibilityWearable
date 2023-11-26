@@ -1,13 +1,18 @@
 #include <stdio.h>
 #include <string.h>
+
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
+
 #include "driver/gpio.h"
-#include "esp_log.h"
 #include "led_strip.h"
-#include "sdkconfig.h"
 #include "esp_adc/adc_continuous.h"
+
+#include "esp_log.h"
+#include "sdkconfig.h"
+
+#include "decibility_leds/decibility_leds.h"
 
 static const char *TAG = "DecibilityWearable";
 
@@ -82,53 +87,11 @@ static void continuous_adc_init(adc_channel_t *channel, uint8_t channel_num, adc
     *out_handle = handle;
 }
 
-/***** LED STUFF *****/
-
-#define BLINK_GPIO 9
-#define BLINK_MS_PERIOD 1000
-
-static uint8_t s_led_state = 0;
-
-static led_strip_handle_t led_strip;
-
-static void blink_led(void)
-{
-    /* If the addressable LED is enabled */
-    if (s_led_state)
-    {
-        /* Set the LED pixel using RGB from 0 (0%) to 255 (100%) for each color */
-        led_strip_set_pixel(led_strip, 0, 0, 0, 10);
-        /* Refresh the strip to send data */
-        led_strip_refresh(led_strip);
-    }
-    else
-    {
-        /* Set all LED off to clear all pixels */
-        led_strip_clear(led_strip);
-    }
-}
-
-static void configure_led(void)
-{
-    /* LED strip initialization with the GPIO and pixels number*/
-    led_strip_config_t strip_config = {
-        .strip_gpio_num = BLINK_GPIO,
-        .max_leds = 3, // at least one LED on board
-    };
-    led_strip_rmt_config_t rmt_config = {
-        .resolution_hz = 10 * 1000 * 1000, // 10MHz
-    };
-    ESP_ERROR_CHECK(led_strip_new_rmt_device(&strip_config, &rmt_config, &led_strip));
-    /* Set all LED off to clear all pixels */
-    led_strip_clear(led_strip);
-}
-
 void app_main(void)
 {
-    // Initialize LED and set it to Green
-    configure_led();
-    led_strip_set_pixel(led_strip, 0, 0, 10, 0);
-    led_strip_refresh(led_strip);
+    // Initialize LED Strips
+    led_strip_handle_t freq_led_strip, volume_led_strip;
+    decibility_led_init(&freq_led_strip, &volume_led_strip);
 
     // ADC Variables
     esp_err_t ret;                     // Error Code that adc_continuous_read() will return
@@ -197,28 +160,28 @@ void app_main(void)
             if (max > 200)
             {
                 delay = 60;
-                led_strip_set_pixel(led_strip, 0, 0, 10, 0);
-                led_strip_set_pixel(led_strip, 1, 0, 10, 0);
-                led_strip_set_pixel(led_strip, 2, 0, 10, 0);
+                led_strip_set_pixel(volume_led_strip, DOWN_ARROW, 0, 10, 0);
+                led_strip_set_pixel(volume_led_strip, CENTER, 0, 10, 0);
+                led_strip_set_pixel(volume_led_strip, UP_ARROW, 0, 10, 0);
             }
             else
             {
                 if (delay == 0)
                 {
-                    led_strip_set_pixel(led_strip, 0, 0, 0, 10);
-                    led_strip_set_pixel(led_strip, 1, 0, 0, 10);
-                    led_strip_set_pixel(led_strip, 2, 0, 0, 10);
+                    led_strip_set_pixel(volume_led_strip, DOWN_ARROW, 0, 0, 10);
+                    led_strip_set_pixel(volume_led_strip, CENTER, 0, 0, 10);
+                    led_strip_set_pixel(volume_led_strip, UP_ARROW, 0, 0, 10);
                 }
                 else
                 {
                     delay--;
                 }
             }
-            led_strip_refresh(led_strip);
+            led_strip_refresh(volume_led_strip);
         }
     }
 
-    // Deactivates the ADC
+    // Deactivate the ADC
     ESP_ERROR_CHECK(adc_continuous_stop(handle));
     ESP_ERROR_CHECK(adc_continuous_deinit(handle));
 }
