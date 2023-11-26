@@ -3,6 +3,7 @@
 #include "led_strip.h"
 #include "driver/gpio.h"
 
+// Generic LED Strip Configuration Function
 void led_strip_init(led_strip_handle_t *led_strip, int gpio, uint32_t num_leds, uint32_t resolution_hz)
 {
     /* LED strip initialization with the GPIO and pixels number*/
@@ -21,6 +22,7 @@ void led_strip_init(led_strip_handle_t *led_strip, int gpio, uint32_t num_leds, 
     return;
 }
 
+// LED Setup for Decibility
 void decibility_led_init(led_strip_handle_t *freq_led_strip, led_strip_handle_t *volume_led_strip)
 {
     led_strip_init(freq_led_strip, FREQ_STRIP_GPIO, FREQ_STRIP_LEDS, FREQ_STRIP_RES);
