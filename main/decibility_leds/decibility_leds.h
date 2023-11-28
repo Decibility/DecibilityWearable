@@ -3,7 +3,7 @@
 #include "led_strip.h"
 
 // Constants for Decibility LED Strips
-#define FREQ_STRIP_GPIO 8
+#define FREQ_STRIP_GPIO 7
 #define FREQ_STRIP_LEDS 3
 #define FREQ_STRIP_RES 1e7
 

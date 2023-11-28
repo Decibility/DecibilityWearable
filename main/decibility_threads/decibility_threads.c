@@ -112,6 +112,11 @@ void update_LEDs(void *pvParameters)
         led_strip_refresh(volume_led_strip);
         recent_max = 0;
 
+        led_strip_set_pixel(freq_led_strip, DOWN_ARROW, 5, 0, 5);
+        led_strip_set_pixel(freq_led_strip, CENTER, 0, 5, 5);
+        led_strip_set_pixel(freq_led_strip, UP_ARROW, 5, 5, 0);
+        led_strip_refresh(freq_led_strip);
+
         // Wait for the next period
         vTaskDelay(pdMS_TO_TICKS(LED_UPDATE_PERIOD_MS));
     }
