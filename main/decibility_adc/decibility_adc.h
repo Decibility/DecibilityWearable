@@ -26,7 +26,8 @@
 #define NUM_SAMPLES 256
 
 // Decibility ADC Constants
-#define DECIBILITY_ADC_CHANNEL ADC_CHANNEL_2
+// Says it maps to pin 34 but it actually maps to pin 39 on our board
+#define DECIBILITY_ADC_CHANNEL ADC_CHANNEL_6
 
 // Handle for Task that processes ADC Results
 extern TaskHandle_t s_task_handle;
