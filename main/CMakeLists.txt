@@ -1,9 +1,9 @@
 idf_component_register(
     SRCS 
-        "main.c" 
-        "decibility_adc/decibility_adc.c"
-        "decibility_leds/decibility_leds.c"
-        "decibility_threads/decibility_threads.c"
+        "main.cpp" 
+        "decibility_adc/decibility_adc.cpp"
+        "decibility_leds/decibility_leds.cpp"
+        "decibility_threads/decibility_threads.cpp"
 
     INCLUDE_DIRS 
         "."
