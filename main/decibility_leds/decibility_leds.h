@@ -15,6 +15,8 @@
 #define CENTER 1
 #define UP_ARROW 2
 
+#define NUM_COLORS 3
+
 // Generic LED Strip Configuration Function
 void led_strip_init(led_strip_handle_t *led_strip, int gpio, uint32_t num_leds, uint32_t resolution_hz);
 

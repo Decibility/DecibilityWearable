@@ -3,7 +3,7 @@
 #include <stdint.h>
 
 ////***** Constants *****//
-#define LED_UPDATE_PERIOD_MS 200
+#define LED_UPDATE_PERIOD_MS 10
 
 ////***** External Variables *****//
 

@@ -23,7 +23,7 @@
 #define DECIBILITY_ADC_GET_DATA(p_data) ((p_data)->type2.data)
 #endif
 
-#define NUM_SAMPLES 256
+#define ADC_NUM_SAMPLES 256
 
 // Decibility ADC Constants
 // Says it maps to pin 34 but it actually maps to pin 39 on our board

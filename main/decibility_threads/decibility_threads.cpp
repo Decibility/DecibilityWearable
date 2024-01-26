@@ -10,6 +10,8 @@
 #include "../decibility_adc/decibility_adc.h"
 #include "esp_adc/adc_continuous.h"
 
+#include "../decibility_bluetooth/decibility_bluetooth.h"
+
 #include <string.h>
 
 #include "esp_log.h"
@@ -23,6 +25,9 @@ uint16_t recent_max; // Has the max adc reading since the last time the LEDs wer
 TaskHandle_t s_task_handle;
 void adc_read(void *pvParameters)
 {
+    // Inits Bluetooth to be able to send data
+    decibility_bt_init();
+
     // Get handle to function that will process ADC output
     // Currently this is main, so we get the current task handle
     // This must be set before ADC init
@@ -35,11 +40,11 @@ void adc_read(void *pvParameters)
     // Starts Continuous ADC Conversion
     ESP_ERROR_CHECK(adc_continuous_start(handle));
 
-    esp_err_t ret;                     // Error Code that adc_continuous_read() will return
-    uint32_t ret_num = 0;              // Will store number of data points that adc_continuous_read() returns
-    uint8_t result[NUM_SAMPLES] = {0}; // Buffer that will store ADC Results
+    esp_err_t ret;                         // Error Code that adc_continuous_read() will return
+    uint32_t ret_num = 0;                  // Will store number of data points that adc_continuous_read() returns
+    uint8_t result[ADC_NUM_SAMPLES] = {0}; // Buffer that will store ADC Results
 
-    memset(result, 0xcc, NUM_SAMPLES); // Fills result array with 0xCC at every index
+    memset(result, 0xcc, ADC_NUM_SAMPLES); // Fills result array with 0xCC at every index
 
     recent_max = 0;
 
@@ -51,7 +56,7 @@ void adc_read(void *pvParameters)
         // Reads until there is no available data
         while (1)
         {
-            ret = adc_continuous_read(handle, result, NUM_SAMPLES, &ret_num, 0);
+            ret = adc_continuous_read(handle, result, ADC_NUM_SAMPLES, &ret_num, 0);
 
             if (ret == ESP_ERR_TIMEOUT)
             {
@@ -63,24 +68,36 @@ void adc_read(void *pvParameters)
                 continue;
             }
 
+            // Buffer for samples to send;
+            uint16_t *data = new uint16_t[ADC_NUM_SAMPLES];
+
             for (int i = 0; i < ret_num; i += SOC_ADC_DIGI_RESULT_BYTES)
             {
                 adc_digi_output_data_t *p = (adc_digi_output_data_t *)&result[i];
                 uint32_t chan_num = DECIBILITY_ADC_GET_CHANNEL(p);
-                uint32_t data = DECIBILITY_ADC_GET_DATA(p);
+                uint32_t datum = DECIBILITY_ADC_GET_DATA(p);
                 /* Check the channel number validation, the data is invalid if the channel num exceed the maximum channel */
                 if (chan_num < SOC_ADC_CHANNEL_NUM(DECIBILITY_ADC_UNIT))
                 {
-                    if (data > recent_max)
-                    {
-                        recent_max = data;
-                    }
+                    data[i] = (uint16_t)datum;
                 }
                 else
                 {
                     ESP_LOGW(TAG, "Invalid data");
                 }
             }
+
+            // If missing some samples, fill them in with 0
+            for (int i = ret_num; i < ADC_NUM_SAMPLES; i++)
+            {
+                data[i] = 0;
+            }
+
+            // Transmits the data over bluetooth
+            decibility_bt_send_audio_burst(data);
+            ESP_LOGI(TAG, "Sent audio");
+
+            delete[] data;
         }
     }
 }
@@ -93,28 +110,45 @@ void update_LEDs(void *pvParameters)
     led_strip_handle_t freq_led_strip, volume_led_strip;
     decibility_led_init(&freq_led_strip, &volume_led_strip);
 
-    recent_max = 0;
+    // Initialize Bluetooth to be able to read data
+    decibility_bt_init();
+
+    // Set up buffers for LED colors
+    uint8_t **volBuffer = new uint8_t *[VOLUME_STRIP_LEDS];
+    for (int i = 0; i < VOLUME_STRIP_LEDS; i++)
+    {
+        volBuffer[i] = new uint8_t[NUM_COLORS];
+        for (int j = 0; j < NUM_COLORS; j++)
+        {
+            volBuffer[i][j] = 0;
+        }
+    }
+
+    uint8_t **freqBuffer = new uint8_t *[FREQ_STRIP_LEDS];
+    for (int i = 0; i < FREQ_STRIP_LEDS; i++)
+    {
+        freqBuffer[i] = new uint8_t[NUM_COLORS];
+        for (int j = 0; j < NUM_COLORS; j++)
+        {
+            freqBuffer[i][j] = 0;
+        }
+    }
 
     while (1)
     {
-        if (recent_max > 200)
-        {
-            led_strip_set_pixel(volume_led_strip, DOWN_ARROW, 0, 10, 0);
-            led_strip_set_pixel(volume_led_strip, CENTER, 0, 10, 0);
-            led_strip_set_pixel(volume_led_strip, UP_ARROW, 0, 10, 0);
-        }
-        else
-        {
-            led_strip_set_pixel(volume_led_strip, DOWN_ARROW, 0, 0, 10);
-            led_strip_set_pixel(volume_led_strip, CENTER, 0, 0, 10);
-            led_strip_set_pixel(volume_led_strip, UP_ARROW, 0, 0, 10);
-        }
-        led_strip_refresh(volume_led_strip);
-        recent_max = 0;
+        while (!Serial.available())
+            vTaskDelay(pdMS_TO_TICKS(LED_UPDATE_PERIOD_MS));
 
-        led_strip_set_pixel(freq_led_strip, DOWN_ARROW, 5, 0, 5);
-        led_strip_set_pixel(freq_led_strip, CENTER, 0, 5, 5);
-        led_strip_set_pixel(freq_led_strip, UP_ARROW, 5, 5, 0);
+        decibility_bt_recive_led_command(volBuffer, freqBuffer);
+
+        led_strip_set_pixel(volume_led_strip, DOWN_ARROW, volBuffer[DOWN_ARROW][0], volBuffer[DOWN_ARROW][1], volBuffer[DOWN_ARROW][2]);
+        led_strip_set_pixel(volume_led_strip, CENTER, volBuffer[CENTER][0], volBuffer[CENTER][1], volBuffer[CENTER][2]);
+        led_strip_set_pixel(volume_led_strip, UP_ARROW, volBuffer[UP_ARROW][0], volBuffer[UP_ARROW][1], volBuffer[UP_ARROW][2]);
+        led_strip_refresh(volume_led_strip);
+
+        led_strip_set_pixel(freq_led_strip, DOWN_ARROW, freqBuffer[DOWN_ARROW][0], freqBuffer[DOWN_ARROW][1], freqBuffer[DOWN_ARROW][2]);
+        led_strip_set_pixel(freq_led_strip, CENTER, freqBuffer[CENTER][0], freqBuffer[CENTER][1], freqBuffer[CENTER][2]);
+        led_strip_set_pixel(freq_led_strip, UP_ARROW, freqBuffer[UP_ARROW][0], freqBuffer[UP_ARROW][1], freqBuffer[UP_ARROW][2]);
         led_strip_refresh(freq_led_strip);
 
         // Wait for the next period
