@@ -6,6 +6,7 @@
 #include "decibility_leds/decibility_leds.h"
 #include "decibility_adc/decibility_adc.h"
 #include "decibility_threads/decibility_threads.h"
+#include "decibility_bluetooth/decibility_bluetooth.h"
 
 #include "sdkconfig.h"
 
@@ -17,11 +18,13 @@ extern "C" void app_main()
     // This makes sure app_main completed adding threads before any threads are started
     vTaskPrioritySet(NULL, tskIDLE_PRIORITY + 3);
 
+    decibility_bt_init();
+
     // Creates task for ADC, ADC is initialized in the task
-    xTaskCreate(adc_read, "Reads from ADC", 1e5, NULL, tskIDLE_PRIORITY + 2, NULL);
+    xTaskCreate(adc_read, "Reads from ADC", 1e4, NULL, tskIDLE_PRIORITY + 2, NULL);
 
     // Creates Task that initializes and updates LED strips
-    xTaskCreate(update_LEDs, "Updates LEDs", 1e5, NULL, tskIDLE_PRIORITY + 1, NULL);
+    xTaskCreate(update_LEDs, "Updates LEDs", 1e4, NULL, tskIDLE_PRIORITY + 1, NULL);
 
     vTaskDelete(NULL);
 }

@@ -28,7 +28,7 @@ void continuous_adc_init(adc_channel_t channel, adc_continuous_handle_t *out_han
     ESP_ERROR_CHECK(adc_continuous_new_handle(&adc_config, &handle));
 
     adc_continuous_config_t dig_cfg = {
-        .sample_freq_hz = 44100,
+        .sample_freq_hz = ADC_SAMPLE_FREQ,
         .conv_mode = DECIBILITY_ADC_CONV_MODE,
         .format = DECIBILITY_ADC_OUTPUT_TYPE,
     };

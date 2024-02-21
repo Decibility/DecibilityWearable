@@ -25,9 +25,6 @@ uint16_t recent_max; // Has the max adc reading since the last time the LEDs wer
 TaskHandle_t s_task_handle;
 void adc_read(void *pvParameters)
 {
-    // Inits Bluetooth to be able to send data
-    decibility_bt_init();
-
     // Get handle to function that will process ADC output
     // Currently this is main, so we get the current task handle
     // This must be set before ADC init
@@ -95,7 +92,7 @@ void adc_read(void *pvParameters)
 
             // Transmits the data over bluetooth
             decibility_bt_send_audio_burst(data);
-            ESP_LOGI(TAG, "Sent audio");
+            vTaskDelay(100);
 
             delete[] data;
         }
@@ -109,9 +106,6 @@ void update_LEDs(void *pvParameters)
 {
     led_strip_handle_t freq_led_strip, volume_led_strip;
     decibility_led_init(&freq_led_strip, &volume_led_strip);
-
-    // Initialize Bluetooth to be able to read data
-    decibility_bt_init();
 
     // Set up buffers for LED colors
     uint8_t **volBuffer = new uint8_t *[VOLUME_STRIP_LEDS];
@@ -136,8 +130,10 @@ void update_LEDs(void *pvParameters)
 
     while (1)
     {
-        while (!Serial.available())
+        while (!SerialBT.available())
+        {
             vTaskDelay(pdMS_TO_TICKS(LED_UPDATE_PERIOD_MS));
+        }
 
         decibility_bt_recive_led_command(volBuffer, freqBuffer);
 
