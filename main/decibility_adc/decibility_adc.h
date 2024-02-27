@@ -27,8 +27,9 @@
 #define ADC_SAMPLE_FREQ 44100
 
 // Decibility ADC Constants
-// Says it maps to pin 34 but it actually maps to pin 39 on our board
-#define DECIBILITY_ADC_CHANNEL ADC_CHANNEL_6
+// ADC 1 Channel 6 maps to pin 34 but it actually maps to pin 39 on the original dev board
+// ADC 1 Channel 7 maps to pin 35
+#define DECIBILITY_ADC_CHANNEL ADC_CHANNEL_7
 
 // Handle for Task that processes ADC Results
 extern TaskHandle_t s_task_handle;
