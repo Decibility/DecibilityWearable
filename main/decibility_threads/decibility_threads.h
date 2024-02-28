@@ -4,6 +4,8 @@
 
 ////***** Constants *****//
 #define LED_UPDATE_PERIOD_MS 10
+#define AUDIO_SEND_FREQUENCY_HZ 4
+#define AUDIO_SEND_DELAY_MS (int)((double)1000 / AUDIO_SEND_FREQUENCY_HZ)
 
 ////***** External Variables *****//
 

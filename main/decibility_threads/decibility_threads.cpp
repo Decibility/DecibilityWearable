@@ -92,7 +92,8 @@ void adc_read(void *pvParameters)
 
             // Transmits the data over bluetooth
             decibility_bt_send_audio_burst(data);
-            vTaskDelay(100);
+
+            vTaskDelay(AUDIO_SEND_DELAY_MS);
 
             delete[] data;
         }

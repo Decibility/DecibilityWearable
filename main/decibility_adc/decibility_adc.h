@@ -23,7 +23,7 @@
 #define DECIBILITY_ADC_GET_DATA(p_data) ((p_data)->type2.data)
 #endif
 
-#define ADC_NUM_SAMPLES 16
+#define ADC_NUM_SAMPLES 1024
 #define ADC_SAMPLE_FREQ 44100
 
 // Decibility ADC Constants
