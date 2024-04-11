@@ -13,6 +13,7 @@
 #include "../decibility_bluetooth/decibility_bluetooth.h"
 
 #include <string.h>
+#include <cstring>
 
 #include "esp_log.h"
 
@@ -37,11 +38,11 @@ void adc_read(void *pvParameters)
     // Starts Continuous ADC Conversion
     ESP_ERROR_CHECK(adc_continuous_start(handle));
 
-    esp_err_t ret;                         // Error Code that adc_continuous_read() will return
-    uint32_t ret_num = 0;                  // Will store number of data points that adc_continuous_read() returns
-    uint8_t result[ADC_NUM_SAMPLES] = {0}; // Buffer that will store ADC Results
+    esp_err_t ret;                                                     // Error Code that adc_continuous_read() will return
+    uint32_t ret_num = 0;                                              // Will store number of data points that adc_continuous_read() returns
+    uint8_t result[ADC_NUM_SAMPLES * SOC_ADC_DIGI_RESULT_BYTES] = {0}; // Buffer that will store ADC Results
 
-    memset(result, 0xcc, ADC_NUM_SAMPLES); // Fills result array with 0xCC at every index
+    memset(result, 0xcc, ADC_NUM_SAMPLES * SOC_ADC_DIGI_RESULT_BYTES); // Fills result array with 0xCC at every index
 
     recent_max = 0;
 
@@ -53,7 +54,7 @@ void adc_read(void *pvParameters)
         // Reads until there is no available data
         while (1)
         {
-            ret = adc_continuous_read(handle, result, ADC_NUM_SAMPLES, &ret_num, 0);
+            ret = adc_continuous_read(handle, result, ADC_NUM_SAMPLES * SOC_ADC_DIGI_RESULT_BYTES, &ret_num, 0);
 
             if (ret == ESP_ERR_TIMEOUT)
             {
@@ -76,10 +77,11 @@ void adc_read(void *pvParameters)
                 /* Check the channel number validation, the data is invalid if the channel num exceed the maximum channel */
                 if (chan_num < SOC_ADC_CHANNEL_NUM(DECIBILITY_ADC_UNIT))
                 {
-                    data[i] = (uint16_t)datum;
+                    data[i / SOC_ADC_DIGI_RESULT_BYTES] = (uint16_t)datum;
                 }
                 else
                 {
+                    data[i / SOC_ADC_DIGI_RESULT_BYTES] = 0;
                     ESP_LOGW(TAG, "Invalid data");
                 }
             }

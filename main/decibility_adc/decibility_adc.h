@@ -23,13 +23,13 @@
 #define DECIBILITY_ADC_GET_DATA(p_data) ((p_data)->type2.data)
 #endif
 
-#define ADC_NUM_SAMPLES 1024
+#define ADC_NUM_SAMPLES 512
 #define ADC_SAMPLE_FREQ 44100
 
 // Decibility ADC Constants
 // ADC 1 Channel 6 maps to pin 34 but it actually maps to pin 39 on the original dev board
 // ADC 1 Channel 7 maps to pin 35
-#define DECIBILITY_ADC_CHANNEL ADC_CHANNEL_7
+#define DECIBILITY_ADC_CHANNEL ADC_CHANNEL_5
 
 // Handle for Task that processes ADC Results
 extern TaskHandle_t s_task_handle;

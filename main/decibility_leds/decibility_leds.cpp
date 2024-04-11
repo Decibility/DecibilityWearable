@@ -28,5 +28,10 @@ void decibility_led_init(led_strip_handle_t *freq_led_strip, led_strip_handle_t 
     led_strip_init(freq_led_strip, FREQ_STRIP_GPIO, FREQ_STRIP_LEDS, FREQ_STRIP_RES);
     led_strip_init(volume_led_strip, VOLUME_STRIP_GPIO, VOLUME_STRIP_LEDS, VOLUME_STRIP_RES);
 
+    led_strip_set_pixel(*volume_led_strip, DOWN_ARROW, 10, 10, 10);
+    led_strip_set_pixel(*freq_led_strip, DOWN_ARROW, 0, 0, 30);
+    led_strip_refresh(*freq_led_strip);
+    led_strip_refresh(*volume_led_strip);
+
     return;
 }
